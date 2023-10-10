@@ -72,7 +72,7 @@ const IGNORE_CMD: CmdUsage = CmdUsage::new("ignore", "Ignore join/quit messages"
 const NOTIFY_CMD: CmdUsage = CmdUsage::new(
     "notify",
     "Set channel notifications",
-    "`/notify [off|mentions|messages]`",
+    "`/notify [off|#<channel_name>|mentions|messages]`",
 );
 const SWITCH_CMD: CmdUsage = CmdUsage::new("switch", "Switches to tab", "`/switch <tab name>`");
 const RELOAD_CMD: CmdUsage = CmdUsage::new("reload", "Reloads config file", "`/reload`");
@@ -194,7 +194,7 @@ impl TUI {
             MsgSource::Serv { serv } => {
                 let mut config = self.get_tab_config(serv, None);
                 let new_ignore = config.toggle_ignore();
-                self.tab_configs.set_by_server(serv, config);
+                self.tab_configs.set_by_server(serv, &config);
                 (MsgTarget::AllServTabs { serv }, new_ignore)
             }
             MsgSource::Chan { serv, chan } => {
@@ -264,7 +264,13 @@ impl TUI {
                     );
                     Notifier::Messages
                 }
-                _ => {
+                channel => if channel.starts_with("#") {
+                    self.add_client_notify_msg(
+                        &format!("Notifications enabled for channel '{}'", channel),
+                        &MsgTarget::CurrentTab,
+                    );
+                    Notifier::Messages
+                } else {
                     return show_usage();
                 }
             };
@@ -1462,11 +1468,16 @@ impl TUI {
             .get_tab_config(src.serv_name(), src.chan_name())
             .notify
             .unwrap_or_default();
+        let mut tmp = String::new();
         self.apply_to_target(&src.to_target(), false, &mut |tab: &mut Tab, _| {
-            let msg = match notifier {
+            let msg = match &notifier {
                 Notifier::Off => "Notifications are off",
                 Notifier::Mentions => "Notifications enabled for mentions",
                 Notifier::Messages => "Notifications enabled for all messages",
+                Notifier::Channel(c) => {
+                    tmp = format!("Notifications enabled for messages in channel: '{c}'");
+                    &tmp
+                },
             };
             tab.widget.add_client_notify_msg(msg);
         });

@@ -9,7 +9,7 @@ use notify_rust::Notification;
 use serde::Deserialize;
 
 /// Destktop notification handler
-#[derive(Debug, Deserialize, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
+#[derive(Debug, Deserialize, PartialEq, Eq, Clone, PartialOrd, Ord)]
 #[serde(rename_all = "lowercase")]
 pub enum Notifier {
     /// Notifications are disabled.
@@ -20,6 +20,9 @@ pub enum Notifier {
 
     /// Generate notifications for all messages.
     Messages,
+
+    /// Generate notifications for specific channel
+    Channel(String),
 }
 
 impl Default for Notifier {
@@ -40,7 +43,7 @@ impl FromStr for Notifier {
             "off" => Ok(Notifier::Off),
             "mentions" => Ok(Notifier::Mentions),
             "messages" => Ok(Notifier::Messages),
-            _ => Err(format!("Unknown Notifier variant: {}", s)),
+            c => Ok(Notifier::Channel(c.to_string())),
         }
     }
 }
@@ -71,7 +74,9 @@ impl Notifier {
 
         match *target {
             MsgTarget::Chan { chan, .. } => {
-                if *self == Notifier::Messages || (*self == Notifier::Mentions && mention) {
+                if let Notifier::Channel(s) = self {
+                    notify(&format!("{} in {}", sender, s), &msg)
+                } else if *self == Notifier::Messages || (*self == Notifier::Mentions && mention) {
                     notify(&format!("{} in {}", sender, chan.display()), &msg)
                 }
             }

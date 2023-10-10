@@ -164,13 +164,13 @@ impl TabConfigs {
         self.0.insert(key, config);
     }
 
-    pub(crate) fn set_by_server(&mut self, serv_name: &str, config: TabConfig) {
+    pub(crate) fn set_by_server(&mut self, serv_name: &str, config: &TabConfig) {
         for c in self
             .0
             .iter_mut()
             .filter(|entry| entry.0.starts_with(serv_name))
         {
-            *c.1 = config;
+            *c.1 = config.clone();
         }
     }
 }
@@ -180,22 +180,22 @@ impl From<&Config> for TabConfigs {
         let mut tab_configs = HashMap::new();
         for server in &config.servers {
             let serv_tc = server.config.or_use(&config.defaults.tab_config);
-            tab_configs.insert(server.addr.clone(), serv_tc);
+            tab_configs.insert(server.addr.clone(), serv_tc.clone());
             for chan in &server.join {
                 let (name, tc) = match chan {
-                    Chan::Name(name) => (name, serv_tc),
+                    Chan::Name(name) => (name, serv_tc.clone()),
                     Chan::WithConfig { name, config } => (name, config.or_use(&serv_tc)),
                 };
                 tab_configs.insert(format!("{}_{}", server.addr, name.display()), tc);
             }
         }
-        tab_configs.insert("_defaults".to_string(), config.defaults.tab_config);
+        tab_configs.insert("_defaults".to_string(), config.defaults.tab_config.clone());
         debug!("new {tab_configs:?}");
         Self(tab_configs)
     }
 }
 
-#[derive(Debug, Default, Copy, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Deserialize, PartialEq, Eq)]
 pub struct TabConfig {
     /// Whether the join/part messages are ignored.
     #[serde(default)]
@@ -217,7 +217,7 @@ impl TabConfig {
     pub(crate) fn or_use(&self, config: &TabConfig) -> TabConfig {
         TabConfig {
             ignore: self.ignore.or(config.ignore),
-            notify: self.notify.or(config.notify),
+            notify: self.notify.clone().or(config.clone().notify),
         }
     }
 
