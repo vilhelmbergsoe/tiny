@@ -219,6 +219,13 @@ impl TUI {
         self.add_client_notify_msg(msg, &target);
     }
 
+    fn show_usage(&mut self) {
+        self.add_client_err_msg(
+            &format!("Usage: {}", NOTIFY_CMD.usage),
+            &MsgTarget::CurrentTab,
+        )
+    }
+
     fn notify(&mut self, words: &mut SplitWhitespace, src: &MsgSource) {
         if !cfg!(feature = "desktop-notifications") {
             self.add_client_msg(
@@ -233,17 +240,10 @@ impl TUI {
 
         let words: Vec<&str> = words.collect();
 
-        let mut show_usage = || {
-            self.add_client_err_msg(
-                &format!("Usage: {}", NOTIFY_CMD.usage),
-                &MsgTarget::CurrentTab,
-            )
-        };
-
         if words.is_empty() {
             self.show_notify_mode(src);
         } else if words.len() != 1 {
-            show_usage();
+            self.show_usage();
         } else {
             let notifier = match words[0] {
                 "off" => {
@@ -264,14 +264,23 @@ impl TUI {
                     );
                     Notifier::Messages
                 }
-                channel => if channel.starts_with("#") {
-                    self.add_client_notify_msg(
-                        &format!("Notifications enabled for channel '{}'", channel),
-                        &MsgTarget::CurrentTab,
-                    );
-                    Notifier::Messages
-                } else {
-                    return show_usage();
+                channel if channel.starts_with("#") => {
+                    if self.tabs.iter().any(|t| t.visible_name == channel) {
+                        self.add_client_notify_msg(
+                            &format!("Notifications enabled for channel '{}'", channel),
+                            &MsgTarget::CurrentTab,
+                        );
+                        Notifier::Channel(channel.to_owned())
+                    } else {
+                        self.add_client_err_msg(
+                            &format!("No such channel '{}'", channel),
+                            &MsgTarget::CurrentTab,
+                        );
+                        return;
+                    }
+                }
+                _ => {
+                    return self.show_usage();
                 }
             };
             // can't use `MsgSource::to_target` here, `Serv` case is different

@@ -43,7 +43,8 @@ impl FromStr for Notifier {
             "off" => Ok(Notifier::Off),
             "mentions" => Ok(Notifier::Mentions),
             "messages" => Ok(Notifier::Messages),
-            c => Ok(Notifier::Channel(c.to_string())),
+            channel if channel.starts_with("#") => Ok(Notifier::Channel(channel.to_string())),
+            _ => Err(format!("Unknown Notifier variant: {}", s)),
         }
     }
 }
